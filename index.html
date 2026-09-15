@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>けいさんドリル</title>
+<style>
+  :root{
+    --bg:#fff7ec;
+    --card:#ffffff;
+    --ink:#3b3024;
+    --sub:#8a7a66;
+    --line:#ffe0b8;
+    --plus:#ff9f43;
+    --minus:#4dabf7;
+    --accent:#ff8a3d;
+    --ok:#37b24d;
+    --shadow:0 6px 0 rgba(0,0,0,.08);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(circle at 12% 8%, #fff2d8 0 22%, transparent 22.5%),
+      radial-gradient(circle at 88% 4%, #ffe8ee 0 18%, transparent 18.5%),
+      var(--bg);
+    color:var(--ink);
+    font-family:"Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN","Yu Gothic","Meiryo",system-ui,sans-serif;
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:16px 16px 48px;}
+
+  h1{
+    text-align:center;
+    font-size:clamp(22px,6vw,32px);
+    margin:12px 0 4px;
+    letter-spacing:.06em;
+  }
+  .lead{text-align:center;color:var(--sub);font-size:14px;margin:0 0 16px;}
+
+  /* ---- モード切替 ---- */
+  .modes{display:flex;gap:10px;justify-content:center;margin-bottom:14px;flex-wrap:wrap;}
+  .mode-btn{
+    font-family:inherit;
+    font-size:clamp(16px,4.2vw,20px);
+    font-weight:700;
+    padding:12px 22px;
+    border-radius:999px;
+    border:3px solid var(--line);
+    background:#fff;
+    color:var(--sub);
+    cursor:pointer;
+    box-shadow:var(--shadow);
+    transition:transform .12s ease, background .2s, color .2s, border-color .2s;
+  }
+  .mode-btn:active{transform:translateY(3px);box-shadow:none;}
+  .mode-btn.active[data-op="+"]{background:var(--plus);border-color:var(--plus);color:#fff;}
+  .mode-btn.active[data-op="-"]{background:var(--minus);border-color:var(--minus);color:#fff;}
+
+  /* ---- 進捗 ---- */
+  .progress{display:flex;align-items:center;gap:10px;margin:0 4px 12px;}
+  .bar{flex:1;height:14px;background:#fff;border:3px solid var(--line);border-radius:999px;overflow:hidden;}
+  .bar span{display:block;height:100%;width:0;background:var(--accent);border-radius:999px;transition:width .4s ease;}
+  .count{font-weight:700;font-size:16px;white-space:nowrap;color:var(--sub);}
+
+  /* ---- カード ---- */
+  .card{
+    background:var(--card);
+    border:4px solid var(--line);
+    border-radius:26px;
+    padding:20px 16px 24px;
+    box-shadow:0 10px 0 rgba(0,0,0,.06);
+    text-align:center;
+  }
+  .qno{font-size:14px;color:var(--sub);font-weight:700;letter-spacing:.1em;}
+  .quiz{
+    font-size:clamp(40px,13vw,68px);
+    font-weight:700;
+    letter-spacing:.06em;
+    margin:6px 0 4px;
+    font-variant-numeric:tabular-nums;
+  }
+  .quiz .op-plus{color:var(--plus);}
+  .quiz .op-minus{color:var(--minus);}
+  .answer{
+    display:inline-block;
+    min-width:1.4em;
+    color:var(--ok);
+    opacity:0;
+    transform:translateY(10px) scale(.6);
+    transition:opacity .3s, transform .35s cubic-bezier(.2,1.6,.4,1);
+  }
+  .answer.show{opacity:1;transform:none;}
+
+  /* ---- まる ---- */
+  .dots{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:clamp(6px,2vw,12px);
+    justify-items:center;
+    max-width:380px;
+    margin:14px auto 6px;
+    min-height:60px;
+  }
+  .dot{
+    width:clamp(38px,11vw,58px);
+    height:clamp(38px,11vw,58px);
+    border-radius:50%;
+    border:4px solid var(--ink);
+    background:#fff;
+    opacity:0;
+    transform:scale(.2);
+    transition:opacity .2s ease, transform .3s cubic-bezier(.2,1.7,.4,1),
+               background-color .3s ease, border-color .3s ease;
+  }
+  .dot.pop{opacity:1;transform:scale(1);}
+  .dot.fill{background:var(--ink);}
+  .dot.added{border-color:var(--plus);background:var(--plus);}
+  .dot.bounce{animation:bounce .4s ease;}
+  @keyframes bounce{
+    0%{transform:scale(1);}
+    40%{transform:scale(1.28);}
+    100%{transform:scale(1);}
+  }
+  .hint{color:var(--sub);font-size:14px;min-height:22px;margin:4px 0 0;font-weight:700;}
+
+  /* ---- ボタン ---- */
+  .actions{display:flex;gap:12px;justify-content:center;margin-top:18px;flex-wrap:wrap;}
+  .btn{
+    font-family:inherit;font-weight:700;
+    font-size:clamp(17px,4.6vw,21px);
+    padding:14px 30px;border-radius:999px;border:none;cursor:pointer;
+    background:var(--accent);color:#fff;box-shadow:0 5px 0 #d96f28;
+    transition:transform .1s ease, box-shadow .1s ease, opacity .2s;
+  }
+  .btn:active{transform:translateY(4px);box-shadow:0 1px 0 #d96f28;}
+  .btn:disabled{opacity:.45;cursor:default;transform:none;}
+  [hidden]{display:none !important;}
+
+  /* ---- 結果 ---- */
+  .result{text-align:center;padding:30px 16px;}
+  .result .big{font-size:clamp(34px,10vw,56px);margin:6px 0;font-weight:700;}
+  .result p{font-size:18px;color:var(--sub);font-weight:700;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🐣 けいさんドリル</h1>
+  <p class="lead">こたえボタンを おすと まるで おしえてくれるよ</p>
+
+  <div class="modes">
+    <button class="mode-btn active" data-op="+" type="button">➕ たしざん</button>
+    <button class="mode-btn" data-op="-" type="button">➖ ひきざん</button>
+  </div>
+
+  <div class="progress">
+    <div class="bar"><span id="barFill"></span></div>
+    <div class="count" id="count">1 / 10</div>
+  </div>
+
+  <div class="card" id="quizCard">
+    <div class="qno" id="qno">だい 1 もん</div>
+    <div class="quiz" id="quiz"></div>
+    <div class="dots" id="dots"></div>
+    <p class="hint" id="hint"></p>
+    <div class="actions">
+      <button class="btn" id="showBtn" type="button">こたえ</button>
+      <button class="btn" id="nextBtn" type="button" hidden>つぎの もんだい →</button>
+    </div>
+  </div>
+
+  <div class="card result" id="resultCard" hidden>
+    <div class="big">🎉</div>
+    <div class="big">10もん おわり！</div>
+    <p>よく がんばりました！</p>
+    <div class="actions">
+      <button class="btn" id="againBtn" type="button">もういちど</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var TOTAL = 10;
+  var op = "+";
+  var questions = [];
+  var index = 0;
+  var timers = [];
+  var answering = false;
+
+  var el = {
+    quiz: document.getElementById("quiz"),
+    dots: document.getElementById("dots"),
+    hint: document.getElementById("hint"),
+    qno: document.getElementById("qno"),
+    count: document.getElementById("count"),
+    bar: document.getElementById("barFill"),
+    showBtn: document.getElementById("showBtn"),
+    nextBtn: document.getElementById("nextBtn"),
+    againBtn: document.getElementById("againBtn"),
+    quizCard: document.getElementById("quizCard"),
+    resultCard: document.getElementById("resultCard")
+  };
+
+  function rand(min, max){ return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+  function clearTimers(){
+    timers.forEach(clearTimeout);
+    timers = [];
+  }
+  function later(fn, ms){ timers.push(setTimeout(fn, ms)); }
+
+  function makeQuestion(){
+    if (op === "+"){
+      var a = rand(1, 9), b = rand(1, 9);
+      return { a: a, b: b, op: "+", ans: a + b };
+    }
+    var x = rand(2, 9);
+    var y = rand(1, x);            // こたえが マイナスに ならないように
+    return { a: x, b: y, op: "-", ans: x - y };
+  }
+
+  function buildSet(){
+    questions = [];
+    for (var i = 0; i < TOTAL; i++) questions.push(makeQuestion());
+    index = 0;
+  }
+
+  function renderQuestion(){
+    clearTimers();
+    answering = false;
+    var q = questions[index];
+    var opClass = q.op === "+" ? "op-plus" : "op-minus";
+    var opChar  = q.op === "+" ? "＋" : "－";
+    el.quiz.innerHTML =
+      q.a + ' <span class="' + opClass + '">' + opChar + '</span> ' + q.b +
+      ' ＝ <span class="answer" id="ansText">' + q.ans + '</span>';
+    el.dots.innerHTML = "";
+    el.hint.textContent = "";
+    el.qno.textContent = "だい " + (index + 1) + " もん";
+    el.count.textContent = (index + 1) + " / " + TOTAL;
+    el.bar.style.width = (index / TOTAL * 100) + "%";
+    el.showBtn.hidden = false;
+    el.showBtn.disabled = false;
+    el.nextBtn.hidden = true;
+  }
+
+  function makeDot(){
+    var d = document.createElement("div");
+    d.className = "dot";
+    el.dots.appendChild(d);
+    return d;
+  }
+
+  function rebounce(node){
+    node.classList.remove("bounce");
+    void node.offsetWidth;
+    node.classList.add("bounce");
+  }
+
+  function showAnswer(){
+    if (answering) return;
+    answering = true;
+    el.showBtn.disabled = true;
+    var q = questions[index];
+    el.dots.innerHTML = "";
+
+    var STEP = 220;   // まるが 1つ でる かんかく
+    var t = 0;
+    var i;
+
+    if (q.op === "-"){
+      // ぜんぶの まるを ならべる → うしろから b こを くろくする
+      var dots = [];
+      for (i = 0; i < q.a; i++) dots.push(makeDot());
+      el.hint.textContent = "まず " + q.a + "こ ならべるよ";
+
+      dots.forEach(function(d, k){
+        later(function(){ d.classList.add("pop"); }, t + k * STEP);
+      });
+      t += q.a * STEP + 450;
+
+      later(function(){ el.hint.textContent = q.b + "こ とるよ （くろまる）"; }, t - 250);
+
+      for (i = 0; i < q.b; i++){
+        (function(k){
+          later(function(){
+            var d = dots[q.a - 1 - k];
+            d.classList.add("fill");
+            rebounce(d);
+          }, t + k * STEP);
+        })(i);
+      }
+      t += q.b * STEP + 350;
+
+      later(function(){
+        el.hint.textContent = "のこりは しろまる " + q.ans + "こ！";
+        for (var m = 0; m < q.ans; m++){
+          (function(mm){ later(function(){ rebounce(dots[mm]); }, mm * 90); })(m);
+        }
+      }, t);
+      t += Math.max(q.ans, 1) * 90 + 400;
+
+    } else {
+      // a こ しろまる → b こ おれんじまるを たす
+      var all = [];
+      for (i = 0; i < q.a + q.b; i++) all.push(makeDot());
+      el.hint.textContent = "まず " + q.a + "こ";
+
+      for (i = 0; i < q.a; i++){
+        (function(k){
+          later(function(){ all[k].classList.add("pop"); }, t + k * STEP);
+        })(i);
+      }
+      t += q.a * STEP + 450;
+
+      later(function(){ el.hint.textContent = "そこに " + q.b + "こ たすよ"; }, t - 250);
+
+      for (i = 0; i < q.b; i++){
+        (function(k){
+          later(function(){
+            var d = all[q.a + k];
+            d.classList.add("pop", "added");
+            rebounce(d);
+          }, t + k * STEP);
+        })(i);
+      }
+      t += q.b * STEP + 350;
+
+      later(function(){
+        el.hint.textContent = "ぜんぶで " + q.ans + "こ！";
+        for (var m = 0; m < all.length; m++){
+          (function(mm){ later(function(){ rebounce(all[mm]); }, mm * 70); })(m);
+        }
+      }, t);
+      t += all.length * 70 + 400;
+    }
+
+    later(function(){
+      var ans = document.getElementById("ansText");
+      if (ans) ans.classList.add("show");
+      el.showBtn.hidden = true;
+      el.nextBtn.hidden = false;
+      el.nextBtn.textContent = (index === TOTAL - 1) ? "けっかを みる →" : "つぎの もんだい →";
+      answering = false;
+    }, t);
+  }
+
+  function next(){
+    if (index === TOTAL - 1){
+      clearTimers();
+      el.bar.style.width = "100%";
+      el.count.textContent = TOTAL + " / " + TOTAL;
+      el.quizCard.hidden = true;
+      el.resultCard.hidden = false;
+      return;
+    }
+    index++;
+    renderQuestion();
+  }
+
+  function restart(){
+    el.resultCard.hidden = true;
+    el.quizCard.hidden = false;
+    buildSet();
+    renderQuestion();
+  }
+
+  // ---- イベント ----
+  Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(btn){
+    btn.addEventListener("click", function(){
+      Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(b){
+        b.classList.remove("active");
+      });
+      btn.classList.add("active");
+      op = btn.getAttribute("data-op");
+      restart();
+    });
+  });
+  el.showBtn.addEventListener("click", showAnswer);
+  el.nextBtn.addEventListener("click", next);
+  el.againBtn.addEventListener("click", restart);
+
+  buildSet();
+  renderQuestion();
+})();
+</script>
+</body>
+</html>
