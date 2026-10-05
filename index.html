@@ -12,6 +12,7 @@
     --sub:#8a7a66;
     --line:#ffe0b8;
     --plus:#ff9f43;
+    --plus2:#f06595;
     --minus:#4dabf7;
     --accent:#ff8a3d;
     --ok:#37b24d;
@@ -39,7 +40,7 @@
   .lead{text-align:center;color:var(--sub);font-size:14px;margin:0 0 16px;}
 
   /* ---- モード切替 ---- */
-  .modes{display:flex;gap:10px;justify-content:center;margin-bottom:14px;flex-wrap:wrap;}
+  .modes{display:flex;gap:10px;justify-content:center;margin-bottom:12px;flex-wrap:wrap;}
   .mode-btn{
     font-family:inherit;
     font-size:clamp(16px,4.2vw,20px);
@@ -56,6 +57,23 @@
   .mode-btn:active{transform:translateY(3px);box-shadow:none;}
   .mode-btn.active[data-op="+"]{background:var(--plus);border-color:var(--plus);color:#fff;}
   .mode-btn.active[data-op="-"]{background:var(--minus);border-color:var(--minus);color:#fff;}
+
+  /* ---- レベル切替 ---- */
+  .levels{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+  .lv-btn{
+    font-family:inherit;
+    font-size:clamp(14px,3.8vw,17px);
+    font-weight:700;
+    padding:8px 16px;
+    border-radius:999px;
+    border:3px solid var(--line);
+    background:#fff;
+    color:var(--sub);
+    cursor:pointer;
+    transition:background .2s, color .2s, border-color .2s;
+  }
+  .lv-btn.active{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .lv-desc{text-align:center;color:var(--sub);font-size:14px;font-weight:700;margin:8px 0 14px;min-height:20px;}
 
   /* ---- 進捗 ---- */
   .progress{display:flex;align-items:center;gap:10px;margin:0 4px 12px;}
@@ -74,12 +92,14 @@
   }
   .qno{font-size:14px;color:var(--sub);font-weight:700;letter-spacing:.1em;}
   .quiz{
-    font-size:clamp(40px,13vw,68px);
+    font-size:clamp(36px,12vw,68px);
     font-weight:700;
-    letter-spacing:.06em;
+    letter-spacing:.04em;
     margin:6px 0 4px;
     font-variant-numeric:tabular-nums;
+    white-space:nowrap;
   }
+  .quiz.long{font-size:clamp(26px,8vw,60px);}
   .quiz .op-plus{color:var(--plus);}
   .quiz .op-minus{color:var(--minus);}
   .answer{
@@ -93,29 +113,40 @@
   .answer.show{opacity:1;transform:none;}
 
   /* ---- まる ---- */
+  /* よこは 10こまで。11こめからは したの だんに ならべる */
   .dots{
     display:grid;
-    grid-template-columns:repeat(5,1fr);
-    gap:clamp(6px,2vw,12px);
+    grid-template-columns:repeat(10,1fr);
+    gap:clamp(4px,1.4vw,10px);
     justify-items:center;
-    max-width:380px;
+    max-width:560px;
     margin:14px auto 6px;
-    min-height:60px;
+    min-height:50px;
   }
   .dot{
-    width:clamp(38px,11vw,58px);
-    height:clamp(38px,11vw,58px);
+    width:clamp(22px,6.6vw,46px);
+    height:clamp(22px,6.6vw,46px);
     border-radius:50%;
-    border:4px solid var(--ink);
+    border:3px solid var(--ink);
     background:#fff;
+    color:var(--ink);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:clamp(11px,3.3vw,20px);
+    font-weight:700;
+    line-height:1;
+    font-variant-numeric:tabular-nums;
     opacity:0;
     transform:scale(.2);
     transition:opacity .2s ease, transform .3s cubic-bezier(.2,1.7,.4,1),
-               background-color .3s ease, border-color .3s ease;
+               background-color .3s ease, border-color .3s ease, color .3s ease;
   }
   .dot.pop{opacity:1;transform:scale(1);}
-  .dot.fill{background:var(--ink);}
-  .dot.added{border-color:var(--plus);background:var(--plus);}
+  .dot.fill{background:var(--ink);color:#fff;}
+  .dot.c1{border-color:var(--plus);background:var(--plus);color:#fff;}
+  .dot.c2{border-color:var(--plus2);background:var(--plus2);color:#fff;}
+  .dot.gone{opacity:0;transform:scale(.2);}
   .dot.bounce{animation:bounce .4s ease;}
   @keyframes bounce{
     0%{transform:scale(1);}
@@ -153,6 +184,13 @@
     <button class="mode-btn" data-op="-" type="button">➖ ひきざん</button>
   </div>
 
+  <div class="levels">
+    <button class="lv-btn active" data-lv="1" type="button">レベル1</button>
+    <button class="lv-btn" data-lv="2" type="button">レベル2</button>
+    <button class="lv-btn" data-lv="3" type="button">レベル3</button>
+  </div>
+  <p class="lv-desc" id="lvDesc"></p>
+
   <div class="progress">
     <div class="bar"><span id="barFill"></span></div>
     <div class="count" id="count">1 / 10</div>
@@ -185,10 +223,24 @@
 
   var TOTAL = 10;
   var op = "+";
+  var level = 1;
   var questions = [];
   var index = 0;
   var timers = [];
   var answering = false;
+
+  var LEVEL_DESC = {
+    "+": {
+      1: "1けた ＋ 1けた（こたえは 9まで）",
+      2: "1けた ＋ 1けた（こたえは 10いじょう）",
+      3: "1けた ＋ 1けた ＋ 1けた（こたえは 10いじょう）"
+    },
+    "-": {
+      1: "1けた － 1けた",
+      2: "2けた － 1けた（こたえは 10いじょう）",
+      3: "2けた － 1けた ＋ 1けた"
+    }
+  };
 
   var el = {
     quiz: document.getElementById("quiz"),
@@ -197,6 +249,7 @@
     qno: document.getElementById("qno"),
     count: document.getElementById("count"),
     bar: document.getElementById("barFill"),
+    lvDesc: document.getElementById("lvDesc"),
     showBtn: document.getElementById("showBtn"),
     nextBtn: document.getElementById("nextBtn"),
     againBtn: document.getElementById("againBtn"),
@@ -212,31 +265,81 @@
   }
   function later(fn, ms){ timers.push(setTimeout(fn, ms)); }
 
-  function makeQuestion(){
-    if (op === "+"){
-      var a = rand(1, 9), b = rand(1, 9);
-      return { a: a, b: b, op: "+", ans: a + b };
+  // terms: [{n: かず, s: "+" or "-"}]（さいしょの s は つかわない）
+  function q(nums, signs){
+    var terms = [], ans = 0;
+    for (var i = 0; i < nums.length; i++){
+      var s = i === 0 ? "+" : signs[i - 1];
+      terms.push({ n: nums[i], s: s });
+      ans += s === "+" ? nums[i] : -nums[i];
     }
-    var x = rand(2, 9);
-    var y = rand(1, x);            // こたえが マイナスに ならないように
-    return { a: x, b: y, op: "-", ans: x - y };
+    return { terms: terms, ans: ans };
   }
+
+  function makeQuestion(){
+    var a, b, c;
+    if (op === "+"){
+      if (level === 1){                 // 1けた＋1けた＝1けた
+        a = rand(1, 8);
+        b = rand(1, 9 - a);
+        return q([a, b], ["+"]);
+      }
+      if (level === 2){                 // 1けた＋1けた＝2けた（くりあがり）
+        a = rand(1, 9);
+        b = rand(10 - a, 9);
+        return q([a, b], ["+"]);
+      }
+      do {                              // 1けた＋1けた＋1けた＝2けた
+        a = rand(1, 9); b = rand(1, 9); c = rand(1, 9);
+      } while (a + b + c < 10);
+      return q([a, b, c], ["+", "+"]);
+    }
+    if (level === 1){                   // 1けた－1けた＝1けた
+      a = rand(2, 9);
+      b = rand(1, a);
+      return q([a, b], ["-"]);
+    }
+    if (level === 2){                   // 2けた－1けた＝2けた（11〜19から ひく）
+      a = rand(11, 19);
+      b = rand(1, a - 10);
+      return q([a, b], ["-"]);
+    }
+    a = rand(10, 19);                   // 2けた－1けた＋1けた（10〜19から）
+    b = rand(1, 9);
+    c = rand(1, 9);
+    return q([a, b, c], ["-", "+"]);
+  }
+
+  function keyOf(x){ return x.terms.map(function(t){ return t.s + t.n; }).join(""); }
 
   function buildSet(){
     questions = [];
-    for (var i = 0; i < TOTAL; i++) questions.push(makeQuestion());
+    var prev = "";
+    for (var i = 0; i < TOTAL; i++){
+      var x, tries = 0;
+      do { x = makeQuestion(); tries++; } while (keyOf(x) === prev && tries < 20);
+      prev = keyOf(x);
+      questions.push(x);
+    }
     index = 0;
   }
 
   function renderQuestion(){
     clearTimers();
     answering = false;
-    var q = questions[index];
-    var opClass = q.op === "+" ? "op-plus" : "op-minus";
-    var opChar  = q.op === "+" ? "＋" : "－";
-    el.quiz.innerHTML =
-      q.a + ' <span class="' + opClass + '">' + opChar + '</span> ' + q.b +
-      ' ＝ <span class="answer" id="ansText">' + q.ans + '</span>';
+    var x = questions[index];
+    var html = "";
+    x.terms.forEach(function(t, i){
+      if (i > 0){
+        html += t.s === "+"
+          ? ' <span class="op-plus">＋</span> '
+          : ' <span class="op-minus">－</span> ';
+      }
+      html += t.n;
+    });
+    html += ' ＝ <span class="answer" id="ansText">' + x.ans + '</span>';
+    el.quiz.innerHTML = html;
+    el.quiz.classList.toggle("long", x.terms.length > 2);
     el.dots.innerHTML = "";
     el.hint.textContent = "";
     el.qno.textContent = "だい " + (index + 1) + " もん";
@@ -245,13 +348,6 @@
     el.showBtn.hidden = false;
     el.showBtn.disabled = false;
     el.nextBtn.hidden = true;
-  }
-
-  function makeDot(){
-    var d = document.createElement("div");
-    d.className = "dot";
-    el.dots.appendChild(d);
-    return d;
   }
 
   function rebounce(node){
@@ -264,79 +360,88 @@
     if (answering) return;
     answering = true;
     el.showBtn.disabled = true;
-    var q = questions[index];
+    var x = questions[index];
     el.dots.innerHTML = "";
 
-    var STEP = 220;   // まるが 1つ でる かんかく
+    // とちゅうで いちばん おおく ならぶ かず
+    var run = 0, peak = 0;
+    x.terms.forEach(function(t){ run += t.s === "+" ? t.n : 0; peak = Math.max(peak, run); if (t.s === "-") run -= t.n; });
+    var many = peak > 10;
+
+    var STEP = many ? 130 : 220;   // まるが 1つ でる かんかく
+    var live = [];                  // いま ならんでいる まる
     var t = 0;
-    var i;
+    var last = x.terms.length - 1;
+    var remain = 0;
 
-    if (q.op === "-"){
-      // ぜんぶの まるを ならべる → うしろから b こを くろくする
-      var dots = [];
-      for (i = 0; i < q.a; i++) dots.push(makeDot());
-      el.hint.textContent = "まず " + q.a + "こ ならべるよ";
+    function addDots(n, cls, t0){
+      for (var k = 0; k < n; k++){
+        later(function(){
+          var d = document.createElement("div");
+          d.className = "dot" + (cls ? " " + cls : "");
+          el.dots.appendChild(d);
+          live.push(d);
+          d.textContent = live.length;   // 1, 2, 3 … と かぞえる
+          void d.offsetWidth;
+          d.classList.add("pop");
+          if (cls) rebounce(d);
+        }, t0 + k * STEP);
+      }
+    }
 
-      dots.forEach(function(d, k){
-        later(function(){ d.classList.add("pop"); }, t + k * STEP);
-      });
-      t += q.a * STEP + 450;
-
-      later(function(){ el.hint.textContent = q.b + "こ とるよ （くろまる）"; }, t - 250);
-
-      for (i = 0; i < q.b; i++){
-        (function(k){
+    function takeDots(n, t0){
+      for (var k = 0; k < n; k++){
+        (function(kk){
           later(function(){
-            var d = dots[q.a - 1 - k];
+            var d = live[live.length - 1 - kk];
             d.classList.add("fill");
             rebounce(d);
-          }, t + k * STEP);
-        })(i);
+          }, t0 + kk * STEP);
+        })(k);
       }
-      t += q.b * STEP + 350;
-
-      later(function(){
-        el.hint.textContent = "のこりは しろまる " + q.ans + "こ！";
-        for (var m = 0; m < q.ans; m++){
-          (function(mm){ later(function(){ rebounce(dots[mm]); }, mm * 90); })(m);
-        }
-      }, t);
-      t += Math.max(q.ans, 1) * 90 + 400;
-
-    } else {
-      // a こ しろまる → b こ おれんじまるを たす
-      var all = [];
-      for (i = 0; i < q.a + q.b; i++) all.push(makeDot());
-      el.hint.textContent = "まず " + q.a + "こ";
-
-      for (i = 0; i < q.a; i++){
-        (function(k){
-          later(function(){ all[k].classList.add("pop"); }, t + k * STEP);
-        })(i);
-      }
-      t += q.a * STEP + 450;
-
-      later(function(){ el.hint.textContent = "そこに " + q.b + "こ たすよ"; }, t - 250);
-
-      for (i = 0; i < q.b; i++){
-        (function(k){
-          later(function(){
-            var d = all[q.a + k];
-            d.classList.add("pop", "added");
-            rebounce(d);
-          }, t + k * STEP);
-        })(i);
-      }
-      t += q.b * STEP + 350;
-
-      later(function(){
-        el.hint.textContent = "ぜんぶで " + q.ans + "こ！";
-        for (var m = 0; m < all.length; m++){
-          (function(mm){ later(function(){ rebounce(all[mm]); }, mm * 70); })(m);
-        }
-      }, t);
-      t += all.length * 70 + 400;
     }
+
+    x.terms.forEach(function(term, ti){
+      var n = term.n;
+      if (ti === 0){
+        later(function(){ el.hint.textContent = "まず " + n + "こ ならべるよ"; }, 0);
+        addDots(n, "", t);
+        remain = n;
+        t += n * STEP + 450;
+      } else if (term.s === "+"){
+        later(function(){ el.hint.textContent = "そこに " + n + "こ たすよ"; }, t - 250);
+        addDots(n, "c" + Math.min(ti, 2), t);
+        remain += n;
+        t += n * STEP + 350;
+      } else {
+        later(function(){ el.hint.textContent = n + "こ とるよ （くろまる）"; }, t - 250);
+        takeDots(n, t);
+        remain -= n;
+        t += n * STEP + 350;
+        if (ti !== last){
+          // つぎの けいさんの まえに とった まるを どける
+          var left = remain;
+          later(function(){
+            el.hint.textContent = "のこりは " + left + "こ";
+            var gone = live.splice(live.length - n, n);
+            gone.forEach(function(d){ d.classList.add("gone"); });
+            later(function(){ gone.forEach(function(d){ d.remove(); }); }, 350);
+          }, t);
+          t += 1100;
+        }
+      }
+    });
+
+    var lastIsMinus = x.terms[last].s === "-";
+    var bounceGap = many ? 45 : (lastIsMinus ? 90 : 70);
+    later(function(){
+      el.hint.textContent = lastIsMinus
+        ? "のこりは しろまる " + x.ans + "こ！"
+        : "ぜんぶで " + x.ans + "こ！";
+      var shown = live.filter(function(d){ return !d.classList.contains("fill"); });
+      shown.forEach(function(d, m){ later(function(){ rebounce(d); }, m * bounceGap); });
+    }, t);
+    t += Math.max(x.ans, 1) * bounceGap + 400;
 
     later(function(){
       var ans = document.getElementById("ansText");
@@ -364,18 +469,29 @@
   function restart(){
     el.resultCard.hidden = true;
     el.quizCard.hidden = false;
+    el.lvDesc.textContent = LEVEL_DESC[op][level];
     buildSet();
     renderQuestion();
+  }
+
+  function selectIn(selector, btn){
+    Array.prototype.forEach.call(document.querySelectorAll(selector), function(b){
+      b.classList.toggle("active", b === btn);
+    });
   }
 
   // ---- イベント ----
   Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(btn){
     btn.addEventListener("click", function(){
-      Array.prototype.forEach.call(document.querySelectorAll(".mode-btn"), function(b){
-        b.classList.remove("active");
-      });
-      btn.classList.add("active");
+      selectIn(".mode-btn", btn);
       op = btn.getAttribute("data-op");
+      restart();
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(".lv-btn"), function(btn){
+    btn.addEventListener("click", function(){
+      selectIn(".lv-btn", btn);
+      level = Number(btn.getAttribute("data-lv"));
       restart();
     });
   });
@@ -383,8 +499,7 @@
   el.nextBtn.addEventListener("click", next);
   el.againBtn.addEventListener("click", restart);
 
-  buildSet();
-  renderQuestion();
+  restart();
 })();
 </script>
 </body>
